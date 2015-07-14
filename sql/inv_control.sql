@@ -128,9 +128,9 @@ create table if not exists invc_control.users (
     active              boolean not null default true,
     is_admin            boolean not null default false,
     created_ts          timestamp not null default current_timestamp,
-    created_by          integer not null references invc_control.users(id),
+    created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         integer not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id)
 );
 
 alter table invc_control.users owner to invc_admins;
@@ -143,9 +143,9 @@ create table if not exists invc_control.value_types (
     type_name               varchar(50) not null primary key,
     type_desc               text,
     created_ts          timestamp not null default current_timestamp,
-    created_by          integer not null references invc_control.users(id),
+    created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         integer not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id)
 );
 
 alter table invc_control.value_types owner to invc_admins;
@@ -165,9 +165,9 @@ create table if not exists invc_control.config (
     value               text not null,
     value_type          varchar(50) not null references invc_control.value_types(type_name),
     created_ts          timestamp not null default current_timestamp,
-    created_by          integer not null references invc_control.users(id),
+    created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         integer not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id)
 );
 
 alter table invc_control.config owner to invc_admins;
@@ -195,9 +195,9 @@ create table if not exists invc_control.warehouses (
     start_dt            date,
     end_dt              date,
     created_ts          timestamp not null default current_timestamp,
-    created_by          integer not null references invc_control.users(id),
+    created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         integer not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id)
 );
 
 alter table invc_control.warehouses owner to invc_admins;
@@ -210,11 +210,11 @@ create table if not exists invc_control.warehouse_areas (
     id                  uuid not null default uuid_generate_v4() primary key,
     name                text not null,
     description         text,
-    warehouse_id        integer not null references invc_control.warehouses(id),
+    warehouse_id        uuid not null references invc_control.warehouses(id),
     created_ts          timestamp not null default current_timestamp,
-    created_by          integer not null references invc_control.users(id),
+    created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         integer not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id)
 );
 
 alter table invc_control.warehouse_areas owner to invc_admins;
@@ -227,11 +227,11 @@ create table if not exists invc_control.area_racks (
     id                  uuid not null default uuid_generate_v4() primary key,
     name                text not null,
     description         text,
-    warehouse_area_id   integer not null references invc_control.warehouse_areas(id),
+    warehouse_area_id   uuid not null references invc_control.warehouse_areas(id),
     created_ts          timestamp not null default current_timestamp,
-    created_by          integer not null references invc_control.users(id),
+    created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         integer not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id)
 );
 
 alter table invc_control.area_racks owner to invc_admins;
@@ -244,11 +244,11 @@ create table if not exists invc_control.rack_shelves (
     id                  uuid not null default uuid_generate_v4() primary key,
     name                text not null,
     description         text,
-    area_rack_id        integer not null references invc_control.area_racks(id),
+    area_rack_id        uuid not null references invc_control.area_racks(id),
     created_ts          timestamp not null default current_timestamp,
-    created_by          integer not null references invc_control.users(id),
+    created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         integer not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id)
 );
 
 alter table invc_control.rack_shelves owner to invc_admins;
@@ -271,9 +271,9 @@ create table if not exists invc_control.items (
     current_location_type   text not null default 'warehouse' check (current_location_type = any (array['warehouse', 'in-transit', 'on-contract'])),
     active                  boolean not null default true,
     created_ts          timestamp not null default current_timestamp,
-    created_by          integer not null references invc_control.users(id),
+    created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         integer not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id)
 );
 
 alter table invc_control.items owner to invc_admins;
@@ -300,9 +300,9 @@ create table if not exists invc_control.contracts (
     email               text,
     items               uuid[], -- items reserved/used for the contract
     created_ts          timestamp not null default current_timestamp,
-    created_by          integer not null references invc_control.users(id),
+    created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         integer not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id)
 );
 
 alter table invc_control.contracts owner to invc_admins;
@@ -311,15 +311,15 @@ alter table invc_control.contracts owner to invc_admins;
 drop table if exists invc_control.warehouse_item_location cascade;
 create table if not exists invc_control.warehouse_item_location (
     id                  uuid not null default uuid_generate_v4() primary key,
-    warehouse_id        integer references invc_control.warehouses(id),
-    warehouse_area_id   integer references invc_control.warehouse_areas(id),
-    area_rack_id        integer references invc_control.area_racks(id),
-    rack_shelf_id       integer references invc_control.rack_shelves(id),
-    item_id             integer not null references invc_control.items(id),
+    warehouse_id        uuid references invc_control.warehouses(id),
+    warehouse_area_id   uuid references invc_control.warehouse_areas(id),
+    area_rack_id        uuid references invc_control.area_racks(id),
+    rack_shelf_id       uuid references invc_control.rack_shelves(id),
+    item_id             uuid not null references invc_control.items(id),
     created_ts          timestamp not null default current_timestamp,
-    created_by          integer not null references invc_control.users(id),
+    created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         integer not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id)
 );
 
 alter table invc_control.warehouse_item_location owner to invc_admins;
@@ -331,7 +331,7 @@ grant all on all sequences in schema invc_control to invc_users invc_admins;
 
 
 create role invadmin with login inherit encrypted password '{ADMIN_ENC_PASSWD}' in role invc_admins;
-create role invuser with login inherid encrypted password '{USER_ENC_PASSWD}' in role invc_users;
+create role invuser with login inherit encrypted password '{USER_ENC_PASSWD}' in role invc_users;
 
 insert into users (id, userid, password, surname, forename, address1, city, state, zipcode, created_by, modified_by)
 values (uuid_nil(), 'root', '{ROOT_PASSWORD}', 'Admin', 'root', 'localhost', 'pty1', 'DC', '00000', uuid_nil(), uuid_nil());

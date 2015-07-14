@@ -42,6 +42,7 @@ EOF
 
 function AddPGData()
 {
+    local RC=0
     local PGDATA=''
     local PG_PATH=$(GetBinaryPath)
     local PG_VER_PATT='([[:digit:]]{1,}\.[[:digit:]]{1,})'
@@ -53,15 +54,18 @@ function AddPGData()
     [[ -n "${PG_VERSION}" ]] && PGDATA=${PGDATA}/${PG_VERSION}
     PGDATA=${PGDATA}/pgdata
     
-    mkdir -p ${PGDATA}
-    
+    mkdir -p ${PGDATA} && \
     cat <<EOF >>.pgsql_profile
 
 PGDATA=${PGDATA}
 export PGDATA
 EOF
     
+    RC=$?
+    
     source .bash_profile
+    
+    return $RC
 }
 
 
@@ -98,10 +102,44 @@ function VerifyBinaryPath()
 
 function VerifyPGData()
 {
+    local RC=0
+    
     if [[ -z "${PGDATA}" ]]
     then
         AddPGData
+        RC=$?
     fi
+}
+
+
+function VerifyServer()
+{
+    local RC=0
+    
+    if $(ls -1 ${PGDATA} | wc -l) -eq 0
+    then
+        initdb $PGDATA && \
+        cd $PGDATA && \
+        tar cvf orig_conf.tar ./*.conf && \
+        cd - && \
+        sed --in-place -e 's/   trust/   md5/g' $PGDATA/pg_hba.conf && \
+        sed --in-place -e 's/local *all *all *md5/local   all             postgres                                trust/1' $PGDATA/pg_hba.conf && \
+        echo 'local   all             all                                     md5' >>$PGDATA/pg_hba.conf
+        
+        RC=$?
+    fi
+    
+    if [[ $RC -eq 0 ]]
+    then
+        if ! pg_ctl -D $PGDATA status >/dev/null
+        then
+            pg_ctl start -D $PGDATA
+            
+            RC=$?
+        fi
+    fi
+    
+    return $RC
 }
 
 
@@ -109,15 +147,7 @@ if [[ "$(id -un)" == "postgres" ]]
 then
     VerifyBinaryPath
     VerifyPGData
-    
-    initdb $PGDATA && \
-    cd $PGDATA && \
-    tar cvf orig_conf.tar ./*.conf && \
-    cd - && \
-    sed --in-place -e 's/   trust/   md5/g' $PGDATA/pg_hba.conf && \
-    sed --in-place -e 's/local *all *all *md5/local   all             postgres                                trust/1' $PGDATA/pg_hba.conf && \
-    echo 'local   all             all                                     md5' >>$PGDATA/pg_hba.conf && \
-    pg_ctl start -D $PGDATA
+    VerifyServer
     
     exit $?
 fi
