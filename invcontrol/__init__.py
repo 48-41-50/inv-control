@@ -3,8 +3,7 @@ from sqlalchemy import engine_from_config
 
 from .models import (
     DBSession,
-    Base,
-    DBConfig
+    Base
     )
 
 
