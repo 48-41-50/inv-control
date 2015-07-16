@@ -17,6 +17,7 @@ requires = [
     'transaction',
     'zope.sqlalchemy',
     'waitress',
+    'psycopg2',
     ]
 
 setup(name='inv-control',
@@ -29,9 +30,9 @@ setup(name='inv-control',
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
         ],
-      author='',
-      author_email='',
-      url='',
+      author='HAP',
+      author_email='48.41.50@gmail.com',
+      url='https://github.com/48-41-50/inv-control',
       keywords='web wsgi bfg pylons pyramid',
       packages=find_packages(),
       include_package_data=True,
@@ -41,7 +42,7 @@ setup(name='inv-control',
       entry_points="""\
       [paste.app_factory]
       main = invcontrol:main
-      [console_scripts]
-      initialize_inv-control_db = invcontrol.scripts.initializedb:main
       """,
+#      [console_scripts]
+#      initialize_inv-control_db = invcontrol.scripts.initializedb:main
       )

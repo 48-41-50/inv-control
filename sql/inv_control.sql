@@ -1,14 +1,10 @@
 -- Postgres
-drop extension if exists "uuid-ossp" cascade;
-drop extension if exists "uri" cascade;
-create extension "uuid-ossp" with schema public;
-create extension "uri" with schema public;
-
 drop database if exists invc_control;
 create database invc_control;
 
-drop owned by setup_user, invc_users, invc_admins cascade;
-drop role setup_user;
+drop owned by invc_users, invc_admins cascade;
+drop role invuser;
+drop role invadmin;
 drop role invc_users;
 drop role invc_admins;
 
@@ -21,12 +17,17 @@ grant temp on database invc_control to invc_users, invc_admins;
 
 
 \c invc_control
+drop extension if exists "uuid-ossp" cascade;
+drop extension if exists "uri" cascade;
+create extension "uuid-ossp" with schema public;
+create extension "uri" with schema public;
+
 create schema invc_control authorization invc_admins;
-grant usage on schema invc_control to invc_users invc_admins;
+grant usage on schema invc_control to invc_users, invc_admins;
 grant create on schema invc_control to invc_admins;
 
 
-set search_path = invc_control, public;
+set search_path = invc_control, public, pg_catalog;
 
 
 drop table if exists invc_control.states cascade;
@@ -111,7 +112,7 @@ commit;
 
 drop table if exists invc_control.users cascade;
 create table if not exists invc_control.users (
-    id                  uuid not null default uuid_generate_v4() primary key,
+    id                  uuid not null default public.uuid_generate_v4() primary key,
     userid              text not null,
     password            text not null,
     surname             text not null,
@@ -130,7 +131,8 @@ create table if not exists invc_control.users (
     created_ts          timestamp not null default current_timestamp,
     created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         uuid not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id),
+    image               bytea
 );
 
 alter table invc_control.users owner to invc_admins;
@@ -138,49 +140,9 @@ alter table invc_control.users owner to invc_admins;
 create unique index users_uix_01 on invc_control.invc_control.users(userid);
 
 
-drop table if exists invc_control.value_types cascade;
-create table if not exists invc_control.value_types (
-    type_name               varchar(50) not null primary key,
-    type_desc               text,
-    created_ts          timestamp not null default current_timestamp,
-    created_by          uuid not null references invc_control.users(id),
-    modified_ts         timestamp not null default current_timestamp,
-    modified_by         uuid not null references invc_control.users(id)
-);
-
-alter table invc_control.value_types owner to invc_admins;
-
-begin;
-insert into invc_control.value_types (type_name, type_desc, created_by, modified_by)
-values ('DECIMAL', 'Decimal (0.0)', 0, 0),
-       ('INTEGER', 'Integer', 0, 0),
-       ('TEXT', 'Text', 0, 0),
-       ('BINARY', 'Binary', 0, 0);
-commit;
-
-
-drop table if exists invc_control.config cascade;
-create table if not exists invc_control.config (
-    key                 text not null primary key,
-    value               text not null,
-    value_type          varchar(50) not null references invc_control.value_types(type_name),
-    created_ts          timestamp not null default current_timestamp,
-    created_by          uuid not null references invc_control.users(id),
-    modified_ts         timestamp not null default current_timestamp,
-    modified_by         uuid not null references invc_control.users(id)
-);
-
-alter table invc_control.config owner to invc_admins;
-
-begin;
-insert into invc_control.config(key, value, value_type, created_by, modified_by)
-values ('COMPANY_LOGO', '', 'BINARY', 0, 0);
-commit;
-
-
 drop table if exists invc_control.warehouses cascade;
 create table if not exists invc_control.warehouses (
-    id                  uuid not null default uuid_generate_v4() primary key,
+    id                  uuid not null default public.uuid_generate_v4() primary key,
     name                text not null,
     description         text,
     address1            text not null,
@@ -191,13 +153,18 @@ create table if not exists invc_control.warehouses (
     telno               text,
     telno_type          text check ( telno_type = any (array['land-line', 'mobile', 'fax', 'other']) ),
     email               text,
-    map_url             url,
+    map_url             uri,
+    height                  float,
+    width                   float,
+    depth                   float,
+    unit_measure            text not null default 'inches' check (unit_measure = any (array['inches', 'feet', 'centimeters', 'meters'])),
     start_dt            date,
     end_dt              date,
     created_ts          timestamp not null default current_timestamp,
     created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         uuid not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id),
+    image               bytea
 );
 
 alter table invc_control.warehouses owner to invc_admins;
@@ -205,64 +172,38 @@ alter table invc_control.warehouses owner to invc_admins;
 create unique index warehouse_uix_01 on invc_control.warehouses (name);
 
 
-drop table if exists invc_control.warehouse_areas cascade;
-create table if not exists invc_control.warehouse_areas (
-    id                  uuid not null default uuid_generate_v4() primary key,
-    name                text not null,
-    description         text,
+drop table if exists invc_control.warehouse_containers cascade;
+create table if not exists invc_control.warehouse_containers (
+    id                  uuid not null default public.uuid_generate_v4() primary key,
     warehouse_id        uuid not null references invc_control.warehouses(id),
-    created_ts          timestamp not null default current_timestamp,
-    created_by          uuid not null references invc_control.users(id),
-    modified_ts         timestamp not null default current_timestamp,
-    modified_by         uuid not null references invc_control.users(id)
-);
-
-alter table invc_control.warehouse_areas owner to invc_admins;
-
-create unique index warehouse_area_uix_01 on invc_control.warehouse_areas (name);
-
-
-drop table if exists invc_control.area_racks cascade;
-create table if not exists invc_control.area_racks (
-    id                  uuid not null default uuid_generate_v4() primary key,
-    name                text not null,
+    container_parent_id uuid not null references invc_control.warehouse_containers(id),
+    container_type      text not null check (container_type = any(array['warehouse', 'area', 'rack', 'shelf', 'bin', 'section'])),
+    container_name      text not null,
     description         text,
-    warehouse_area_id   uuid not null references invc_control.warehouse_areas(id),
+    height                  float,
+    width                   float,
+    depth                   float,
+    unit_measure            text not null default 'inches' check (unit_measure = any (array['inches', 'feet', 'centimeters', 'meters'])),
     created_ts          timestamp not null default current_timestamp,
     created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         uuid not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id),
+    image               bytea
 );
 
-alter table invc_control.area_racks owner to invc_admins;
+alter table invc_control.warehouse_containers owner to invc_admins;
 
-create unique index area_rack_uix_01 on invc_control.area_racks (name);
-
-
-drop index if exists invc_control.rack_shelves;
-create table if not exists invc_control.rack_shelves (
-    id                  uuid not null default uuid_generate_v4() primary key,
-    name                text not null,
-    description         text,
-    area_rack_id        uuid not null references invc_control.area_racks(id),
-    created_ts          timestamp not null default current_timestamp,
-    created_by          uuid not null references invc_control.users(id),
-    modified_ts         timestamp not null default current_timestamp,
-    modified_by         uuid not null references invc_control.users(id)
-);
-
-alter table invc_control.rack_shelves owner to invc_admins;
-
-create unique index rack_shelf_uix_01 on invc_control.rack_shelves (name);
+create unique index warehouse_containers_uix_01 on invc_control.warehouse_containers (container_name);
+create index warehouse_containers_ix_01 on invc_control.warehouse_containers (warehouse_id);
+create index warehouse_containers_ix_02 on invc_control.warehouse_containers (container_parent_id);
 
 
 drop table if exists invc_control.items cascade;
 create table if not exists invc_control.items (
-    id                      uuid not null default uuid_generate_v4() primary key,
+    id                      uuid not null default public.uuid_generate_v4() primary key,
     name                    text not null,
     description             text,
     tags                    text[],
-    image                   bytea,
     height                  float,
     width                   float,
     depth                   float,
@@ -273,7 +214,8 @@ create table if not exists invc_control.items (
     created_ts          timestamp not null default current_timestamp,
     created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
-    modified_by         uuid not null references invc_control.users(id)
+    modified_by         uuid not null references invc_control.users(id),
+    image               bytea
 );
 
 alter table invc_control.items owner to invc_admins;
@@ -283,7 +225,7 @@ create index item_ix_01 on invc_control.items using gin (tags);
 
 drop table if exists invc_control.contracts cascade;
 create table if not exists invc_control.contracts (
-    id                      uuid not null default uuid_generate_v4() primary key,
+    id                      uuid not null default public.uuid_generate_v4() primary key,
     name                    varchar(256) not null,
     description             text,
     start_dt                date not null,
@@ -308,31 +250,14 @@ create table if not exists invc_control.contracts (
 alter table invc_control.contracts owner to invc_admins;
 
 
-drop table if exists invc_control.warehouse_item_location cascade;
-create table if not exists invc_control.warehouse_item_location (
-    id                  uuid not null default uuid_generate_v4() primary key,
-    warehouse_id        uuid references invc_control.warehouses(id),
-    warehouse_area_id   uuid references invc_control.warehouse_areas(id),
-    area_rack_id        uuid references invc_control.area_racks(id),
-    rack_shelf_id       uuid references invc_control.rack_shelves(id),
-    item_id             uuid not null references invc_control.items(id),
-    created_ts          timestamp not null default current_timestamp,
-    created_by          uuid not null references invc_control.users(id),
-    modified_ts         timestamp not null default current_timestamp,
-    modified_by         uuid not null references invc_control.users(id)
-);
-
-alter table invc_control.warehouse_item_location owner to invc_admins;
-
-
 grant select, insert, update, delete on all tables in schema invc_control to invc_users;
 grant all on all tables in schema invc_control to invc_admins;
-grant all on all sequences in schema invc_control to invc_users invc_admins;
+grant all on all sequences in schema invc_control to invc_users, invc_admins;
 
 
-create role invadmin with login inherit encrypted password '{ADMIN_ENC_PASSWD}' in role invc_admins;
-create role invuser with login inherit encrypted password '{USER_ENC_PASSWD}' in role invc_users;
+create role invadmin with login inherit encrypted password 'invadmin01' in role invc_admins;
+create role invuser with login inherit encrypted password 'invuser01' in role invc_users;
 
 insert into users (id, userid, password, surname, forename, address1, city, state, zipcode, created_by, modified_by)
-values (uuid_nil(), 'root', '{ROOT_PASSWORD}', 'Admin', 'root', 'localhost', 'pty1', 'DC', '00000', uuid_nil(), uuid_nil());
+values (public.uuid_nil(), 'root', '$admin01', 'Admin', 'root', 'localhost', 'pty1', 'DC', '00000', public.uuid_nil(), public.uuid_nil());
 
