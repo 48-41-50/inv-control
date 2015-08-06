@@ -20,13 +20,13 @@ UOM_CHOICES = (
 
 
 CONTAINER_CHOICES = (
-    ('W', 'Warehouse'),
-    ('F', 'Floor'),
-    ('A', 'Area'),
-    ('R', 'Rack'),
-    ('S', 'Shelf'),
-    ('B', 'Bin'),
-    ('C', 'Section'),
+    ('0', 'Warehouse'),
+    ('1', 'Floor'),
+    ('2', 'Area'),
+    ('3', 'Rack'),
+    ('4', 'Shelf'),
+    ('5', 'Bin'),
+    ('6', 'Section'),
 )
 
 
@@ -35,6 +35,21 @@ LOCATION_CHOICES = (
     ('I', 'In-Transit'),
     ('C', 'On Contract'),
 )
+
+
+class Addressable(models.Model):
+    address1        = models.CharField(max_length=256, null=False, blank=False)
+    address2        = models.CharField(max_length=256, null=True, blank=False)
+    city            = models.CharField(max_length=128, null=False, blank=False)
+    state           = models.ForeignKey("States", null=False, blank=False)
+    zipcode         = models.CharField(max_length=9, null=False, blank=False)
+    telno           = models.CharField(max_length=15, null=False, blank=False)
+    telno_type      = models.CharField(max_length=1, null=False, blank=False, default=TELNO_CHOICES[0][0], choices=TELNO_CHOICES)
+    
+    class Meta:
+        abstract    = True
+    # End class Meta
+# End class Address
 
 
 class States(models.Model):
@@ -49,43 +64,33 @@ class Groups(models.Model):
 # End class Groups
 
 
-class Users(models.Model):
+class Users(Addressable):
     id              = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     userid          = models.CharField(max_length=25, null=False, blank=False, unique=True)
     surname         = models.CharField(max_length=50, null=False, blank=False)
     midname         = models.CharField(max_length=50, null=True, blank=False)
     forename        = models.CharField(max_length=50, null=False, blank=False)
-    address1        = models.CharField(max_length=256, null=False, blank=False)
-    address2        = models.CharField(max_length=256, null=True, blank=False)
-    city            = models.CharField(max_length=128, null=False, blank=False)
-    state           = models.ForeignKey(States, null=False, blank=False)
-    zipcode         = models.CharField(max_length=9, null=False, blank=False)
-    telno           = models.CharField(max_length=15, null=False, blank=False)
-    telno_type      = models.CharField(max_length=1, null=False, blank=False, default=TELNO_CHOICES[0][0], choices=TELNO_CHOICES)
     email           = models.EmailField(null=True, blank=False)
     active          = models.BooleanField(null=False, default=True, db_index=True)
     start_dt        = models.DateField(null=False, auto_now_add=True)
     end_dt          = models.DateField(null=False, default=datetime.date(9999, 12, 31))
     image           = models.ImageField(upload_to="users", null=True, height_field=100, width_field=100)
-    created_by      = models.ForeignKey("self", related_name="users_created_by")
+    created_by      = models.ForeignKey("self", related_name="user_created_by")
     created_ts      = models.DateTimeField(auto_now_add=True, null=False)
-    modified_by     = models.ForeignKey("self", related_name="users_modified_by")
+    modified_by     = models.ForeignKey("self", related_name="user_modified_by")
     modified_ts     = models.DateTimeField(auto_now=True, null=False)
     groups          = ArrayField(models.CharField(max_length=25, null=False), null=False)
+    
+    class Meta:
+        ordering = ['surname', 'forename']
+    # End class Meta
 # End class Users
 
 
-class Warehouses(models.Model):
+class Warehouses(Addressable):
     id              = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name            = models.CharField(max_length=256, null=False, blank=False, unique=True)
     description     = models.TextField(null=True, blank=False)
-    address1        = models.CharField(max_length=256, null=False, blank=False)
-    address2        = models.CharField(max_length=256, null=True, blank=False)
-    city            = models.CharField(max_length=128, null=False, blank=False)
-    state           = models.ForeignKey(States, null=False, blank=False)
-    zipcode         = models.CharField(max_length=9, null=False, blank=False)
-    telno           = models.CharField(max_length=15, null=False, blank=False)
-    telno_type      = models.CharField(max_length=1, null=False, blank=False, default=TELNO_CHOICES[1][0], choices=TELNO_CHOICES)
     map_url         = models.URLField(max_length=256, null=True, blank=False)
     height          = models.DecimalField(max_digits=7, decimal_places=2, null=True)
     width           = models.DecimalField(max_digits=7, decimal_places=2, null=True)
@@ -94,17 +99,21 @@ class Warehouses(models.Model):
     start_dt        = models.DateField(null=False, auto_now_add=True, db_index=True)
     end_dt          = models.DateField(null=False, default=datetime.date(9999, 12, 31), db_index=True)
     image           = models.ImageField(upload_to="warehouses", null=True, height_field=300, width_field=300)
-    created_by      = models.ForeignKey(Users, related_name='warehouses_created_by')
+    created_by      = models.ForeignKey(Users, related_name='warehouse_created_by')
     created_ts      = models.DateTimeField(auto_now_add=True, null=False)
-    modified_by     = models.ForeignKey(Users, related_name='warehouses_modified_by')
+    modified_by     = models.ForeignKey(Users, related_name='warehouse_modified_by')
     modified_ts     = models.DateTimeField(auto_now=True, null=False)
+    
+    class Meta:
+        ordering = ['city', 'name']
+    # End class Meta
 # End class Warehouses
 
 
 class WarehouseContainers(models.Model):
     id              = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     warehouse       = models.ForeignKey(Warehouses, null=False)
-    parent          = models.ForeignKey("self", related_name="whse_containers_parent")
+    parent          = models.ForeignKey("self", related_name="whse_container_parent")
     parent_type     = models.CharField(max_length=1, null=False, blank=False, choices=CONTAINER_CHOICES)
     name            = models.CharField(max_length=128, null=False, blank=False)
     description     = models.TextField(null=True, blank=False)
@@ -113,9 +122,9 @@ class WarehouseContainers(models.Model):
     depth           = models.DecimalField(max_digits=7, decimal_places=2, null=True)
     unit_measure    = models.CharField(max_length=1, null=True, blank=False, default=UOM_CHOICES[1][0], choices=UOM_CHOICES)
     image           = models.ImageField(upload_to="warehouse_containers", null=True, height_field=300, width_field=300)
-    created_by      = models.ForeignKey(Users, related_name='whse_containers_created_by')
+    created_by      = models.ForeignKey(Users, related_name='whse_container_created_by')
     created_ts      = models.DateTimeField(auto_now_add=True, null=False)
-    modified_by     = models.ForeignKey(Users, related_name='whse_containers_modified_by')
+    modified_by     = models.ForeignKey(Users, related_name='whse_container_modified_by')
     modified_ts     = models.DateTimeField(auto_now=True, null=False)
 # End class WarehouseContainers
 
@@ -134,15 +143,19 @@ class Items(models.Model):
     purchase_dt     = models.DateField(null=True)
     active          = models.BooleanField(null=False, default=True, db_index=True)
     image           = models.ImageField(upload_to="items", null=True, height_field=300, width_field=300)
-    created_by      = models.ForeignKey(Users, related_name='items_created_by')
+    created_by      = models.ForeignKey(Users, related_name='item_created_by')
     created_ts      = models.DateTimeField(auto_now_add=True, null=False)
-    modified_by     = models.ForeignKey(Users, related_name='items_modified_by')
+    modified_by     = models.ForeignKey(Users, related_name='item_modified_by')
     modified_ts     = models.DateTimeField(auto_now=True, null=False)
     tags            = ArrayField(models.CharField(max_length=50, null=False, blank=False))
+    
+    def get_location_path(self):
+        pass
+    # End get_location_path
 # End class Items
 
 
-class Contracts(models.Model):
+class Contracts(Addressable):
     id                      = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name                    = models.CharField(max_length=128, null=False, blank=False, unique=True)
     description             = models.TextField(null=True, blank=False)
@@ -154,19 +167,16 @@ class Contracts(models.Model):
     pickup_dt               = models.DateField(null=True)
     company_contact         = models.ForeignKey(Users, null=False)
     contact_name            = models.CharField(max_length=128, null=False)
-    contact_address1        = models.CharField(max_length=256, null=False, blank=False)
-    contact_address2        = models.CharField(max_length=256, null=True, blank=False)
-    contact_city            = models.CharField(max_length=128, null=False, blank=False)
-    contact_state           = models.ForeignKey(States, null=False, blank=False)
-    contact_zipcode         = models.CharField(max_length=9, null=False, blank=False)
-    contact_telno           = models.CharField(max_length=15, null=False, blank=False)
-    contact_telno_type      = models.CharField(max_length=1, null=False, blank=False, default=TELNO_CHOICES[0][0], choices=TELNO_CHOICES)
     contact_email           = models.EmailField(null=True, blank=False)
-    created_by              = models.ForeignKey(Users, related_name='contracts_created_by')
+    created_by              = models.ForeignKey(Users, related_name='contract_created_by')
     created_ts              = models.DateTimeField(auto_now_add=True, null=False)
-    modified_by             = models.ForeignKey(Users, related_name='contracts_modified_by')
+    modified_by             = models.ForeignKey(Users, related_name='contract_modified_by')
     modified_ts             = models.DateTimeField(auto_now=True, null=False)
     items                   = ArrayField(models.UUIDField(null=False, blank=False))
+    
+    class Meta:
+        ordering = ['start_dt', 'invoice_number', 'name']
+    # End class Meta
 # End class Contracts
 
 
@@ -179,10 +189,14 @@ class Pulls(models.Model):
     to_location_type        = models.CharField(max_length=1, null=False, blank=False, choices=LOCATION_CHOICES)
     start_dt                = models.DateField(null=False, auto_now_add=True, db_index=True)
     end_dt                  = models.DateField(null=False, default=datetime.date(9999, 12, 31), db_index=True)
-    created_by              = models.ForeignKey(Users, related_name='pulls_created_by')
+    created_by              = models.ForeignKey(Users, related_name='pull_created_by')
     created_ts              = models.DateTimeField(auto_now_add=True, null=False)
-    modified_by             = models.ForeignKey(Users, related_name='pulls_modified_by')
+    modified_by             = models.ForeignKey(Users, related_name='pull_modified_by')
     modified_ts             = models.DateTimeField(auto_now=True, null=False)
     items                   = ArrayField(models.UUIDField(null=False, blank=False))
+    
+    class Meta:
+        ordering = ['start_dt']
+    # End class Meta
 # End class Pulls
 
