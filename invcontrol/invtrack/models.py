@@ -1,3 +1,4 @@
+import types
 import uuid
 import datetime
 from django.db import models
@@ -55,12 +56,20 @@ class Addressable(models.Model):
 class States(models.Model):
     abbr = models.CharField(max_length=2, primary_key=True)
     name = models.CharField(max_length=75)
+    
+    def __str__(self):
+        return self.name
+    # End __str__
 # End class States
 
 
 class Groups(models.Model):
     name        = models.CharField(max_length=25, primary_key=True)
     description = models.CharField(max_length=100)
+    
+    def __str__(self):
+        return self.name
+    # End __str__
 # End class Groups
 
 
@@ -80,6 +89,12 @@ class Users(Addressable):
     modified_by     = models.ForeignKey("self", related_name="user_modified_by")
     modified_ts     = models.DateTimeField(auto_now=True, null=False)
     groups          = ArrayField(models.CharField(max_length=25, null=False), null=False)
+    
+    def __str__(self):
+        midname = " {0}".format(self.midname) if self.midname else ""
+        forename = ", {0}".format(self.forename) if self.forename else ""
+        return "{0}{1}{2}".format(self.surname, forename, midname)
+    # End __str__
     
     class Meta:
         ordering = ['surname', 'forename']
@@ -104,6 +119,10 @@ class Warehouses(Addressable):
     modified_by     = models.ForeignKey(Users, related_name='warehouse_modified_by')
     modified_ts     = models.DateTimeField(auto_now=True, null=False)
     
+    def __str__(self):
+        return self.name
+    # End __str__
+    
     class Meta:
         ordering = ['city', 'name']
     # End class Meta
@@ -126,6 +145,10 @@ class WarehouseContainers(models.Model):
     created_ts      = models.DateTimeField(auto_now_add=True, null=False)
     modified_by     = models.ForeignKey(Users, related_name='whse_container_modified_by')
     modified_ts     = models.DateTimeField(auto_now=True, null=False)
+    
+    def __str__(self):
+        return self.name
+    # End __str__
 # End class WarehouseContainers
 
 
@@ -148,6 +171,10 @@ class Items(models.Model):
     modified_by     = models.ForeignKey(Users, related_name='item_modified_by')
     modified_ts     = models.DateTimeField(auto_now=True, null=False)
     tags            = ArrayField(models.CharField(max_length=50, null=False, blank=False))
+    
+    def __str__(self):
+        return self.name
+    # End __str__
     
     def get_location_path(self):
         pass
@@ -174,6 +201,10 @@ class Contracts(Addressable):
     modified_ts             = models.DateTimeField(auto_now=True, null=False)
     items                   = ArrayField(models.UUIDField(null=False, blank=False))
     
+    def __str__(self):
+        return self.name
+    # End __str__
+    
     class Meta:
         ordering = ['start_dt', 'invoice_number', 'name']
     # End class Meta
@@ -194,6 +225,10 @@ class Pulls(models.Model):
     modified_by             = models.ForeignKey(Users, related_name='pull_modified_by')
     modified_ts             = models.DateTimeField(auto_now=True, null=False)
     items                   = ArrayField(models.UUIDField(null=False, blank=False))
+    
+    def __str__(self):
+        return str(self.id)
+    # End __str__
     
     class Meta:
         ordering = ['start_dt']
