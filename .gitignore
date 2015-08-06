@@ -55,3 +55,7 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# old stuff
+invcontrol.pyramid.tgz
+
