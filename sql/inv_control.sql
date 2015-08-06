@@ -2,19 +2,13 @@
 drop database if exists invc_control;
 create database invc_control;
 
-drop owned by invc_users, invc_admins cascade;
-drop role invuser;
-drop role invadmin;
-drop role invc_users;
-drop role invc_admins;
+drop owned by invcontrol cascade;
+drop role invcontrol;
 
-create role invc_users with nologin nosuperuser noreplication nocreatedb nocreaterole;
-create role invc_admins with nologin createrole createdb replication;
+create role invcontrol with login nosuperuser noreplication nocreatedb nocreaterole with encrpyted password 'I am @user !';
 
-alter database invc_control owner to invc_admins;
-grant connect on database invc_control to invc_users, invc_admins;
-grant temp on database invc_control to invc_users, invc_admins;
-
+alter database invc_control owner to invcontrol;
+grant all on database invc_control to invcontrol;
 
 \c invc_control
 drop extension if exists "uuid-ossp" cascade;
@@ -23,13 +17,6 @@ drop extension if exists "pgcrypto" cascade;
 create extension "uuid-ossp" with schema public;
 create extension "uri" with schema public;
 create extension "pgcrypto" with schema public;
-
-create schema invc_control authorization invc_admins;
-grant usage on schema invc_control to invc_users, invc_admins;
-grant create on schema invc_control to invc_admins;
-
-
-set search_path = invc_control, public, pg_catalog;
 
 
 drop table if exists invc_control.states cascade;
