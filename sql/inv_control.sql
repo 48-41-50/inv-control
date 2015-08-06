@@ -19,8 +19,10 @@ grant temp on database invc_control to invc_users, invc_admins;
 \c invc_control
 drop extension if exists "uuid-ossp" cascade;
 drop extension if exists "uri" cascade;
+drop extension if exists "pgcrypto" cascade;
 create extension "uuid-ossp" with schema public;
 create extension "uri" with schema public;
+create extension "pgcrypto" with schema public;
 
 create schema invc_control authorization invc_admins;
 grant usage on schema invc_control to invc_users, invc_admins;
@@ -110,11 +112,26 @@ values ('AL', 'Alabama'),
 commit;
 
 
+drop table if exists invc_control.groups;
+create table if not exists invc_control.user_groups (
+    name                text not null primary key,
+    description         text
+);
+
+begin;
+insert into invc_control.user_groups( name, description )
+values ('admins', 'Administrator'), 
+       ('users', 'System User'),
+       ('ro-users', 'Read-Only User');
+commit;
+
+
 drop table if exists invc_control.users cascade;
 create table if not exists invc_control.users (
     id                  uuid not null default public.uuid_generate_v4() primary key,
     userid              text not null,
     password            text not null,
+    groups              text[] not null,
     surname             text not null,
     midname             text,
     forename            text not null,
@@ -127,7 +144,6 @@ create table if not exists invc_control.users (
     telno_type          text check ( telno_type = any (array['land-line', 'mobile', 'fax', 'other']) ),
     email               text,
     active              boolean not null default true,
-    is_admin            boolean not null default false,
     created_ts          timestamp not null default current_timestamp,
     created_by          uuid not null references invc_control.users(id),
     modified_ts         timestamp not null default current_timestamp,
@@ -158,7 +174,7 @@ create table if not exists invc_control.warehouses (
     width                   float,
     depth                   float,
     unit_measure            text not null default 'inches' check (unit_measure = any (array['inches', 'feet', 'centimeters', 'meters'])),
-    start_dt            date,
+    start_dt            date not null,
     end_dt              date,
     created_ts          timestamp not null default current_timestamp,
     created_by          uuid not null references invc_control.users(id),
@@ -237,6 +253,7 @@ create table if not exists invc_control.contracts (
     city                text not null,
     state               char(2) not null references invc_control.states(abbr),
     zipcode             text not null,
+    map_url             uri,
     telno               text,
     telno_type          text check ( telno_type = any (array['land-line', 'mobile', 'fax', 'other']) ),
     email               text,
@@ -258,6 +275,6 @@ grant all on all sequences in schema invc_control to invc_users, invc_admins;
 create role invadmin with login inherit encrypted password 'invadmin01' in role invc_admins;
 create role invuser with login inherit encrypted password 'invuser01' in role invc_users;
 
-insert into users (id, userid, password, surname, forename, address1, city, state, zipcode, created_by, modified_by)
-values (public.uuid_nil(), 'root', '$admin01', 'Admin', 'root', 'localhost', 'pty1', 'DC', '00000', public.uuid_nil(), public.uuid_nil());
+insert into users (id, userid, password, surname, forename, address1, city, state, zipcode, groups, created_by, modified_by)
+values (public.uuid_nil(), 'root', '$admin01', 'Admin', 'root', 'localhost', 'pty1', 'DC', '00000', array['admins'], public.uuid_nil(), public.uuid_nil());
 
